@@ -30,38 +30,62 @@ classDiagram
     class ReservationController {
         +createReservation(commandId, request)
     }
+    class InventoryOperationController {
+        +execute(commandId, request)
+    }
     class InventoryCommand {
         <<interface>>
         +execute() boolean
+        +undo()
         +getCommandId() String
     }
-    class ReserveCommand {
-        -commandId String
-        -sku String
-        -quantity int
+    class AbstractInventoryCommand {
+        <<abstract>>
         +execute() boolean
         +undo()
+        #executeOperation()*
+        #undoOperation()*
     }
     class ReleaseCommand
     class AdjustCommand
     class TransferCommand
+    class ReserveCommand
     class CommandInvoker {
         +submit(command) boolean
         +undoLast() String
     }
+    class InventoryCommandFactory {
+        +create(commandId, request) InventoryCommand
+    }
+    class OperationRequest {
+        +operation String
+        +sku String
+        +quantity int
+        +location String
+        +destinationLocation String
+    }
     class InventoryReceiver {
-        +reserve(sku, quantity)
+        +reserve(sku, quantity, location)
+        +release(sku, quantity, location)
+        +adjust(sku, delta, location)
+        +transfer(sku, quantity, source, destination)
     }
     class LedgerService {
-        +executeOnce(commandId, action, sku, quantity, location, destination, operation) boolean
+        +executeOnce(commandId, operationData) boolean
+        +recordUndo(commandId)
     }
 
-    InventoryCommand <|.. ReserveCommand
-    InventoryCommand <|.. ReleaseCommand
-    InventoryCommand <|.. AdjustCommand
-    InventoryCommand <|.. TransferCommand
-    ReservationController ..> InventoryCommand : creates
+    InventoryCommand <|.. AbstractInventoryCommand
+    AbstractInventoryCommand <|-- ReserveCommand
+    AbstractInventoryCommand <|-- ReleaseCommand
+    AbstractInventoryCommand <|-- AdjustCommand
+    AbstractInventoryCommand <|-- TransferCommand
+    ReservationController --> CommandInvoker : submits
+    InventoryOperationController --> InventoryCommandFactory : creates
+    InventoryOperationController --> CommandInvoker : submits
+    InventoryCommandFactory ..> OperationRequest : reads
+    InventoryCommandFactory ..> InventoryCommand : creates
     CommandInvoker ..> InventoryCommand : invokes and undoes
-    ReserveCommand --> InventoryReceiver : reserves inventory
-    ReserveCommand --> LedgerService : checks and records
+    AbstractInventoryCommand --> InventoryReceiver : executes and compensates
+    AbstractInventoryCommand --> LedgerService : checks and records
 ```
