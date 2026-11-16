@@ -3,6 +3,7 @@ package com.logistpulse.inventory.service;
 import com.logistpulse.inventory.model.BatchContext;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -15,8 +16,11 @@ public class BatchLifecycleService {
     }
 
     public String applyTransition(String batchId, String action) {
+        if (action == null || action.isBlank()) {
+            throw new IllegalArgumentException("Action must not be blank.");
+        }
         BatchContext batch = getOrCreateBatch(batchId);
-        switch (action.toLowerCase()) {
+        switch (action.toLowerCase(Locale.ROOT)) {
             case "store" -> batch.store();
             case "reserve" -> batch.reserve();
             case "ship" -> batch.ship();

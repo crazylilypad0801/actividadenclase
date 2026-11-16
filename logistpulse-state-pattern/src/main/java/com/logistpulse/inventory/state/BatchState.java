@@ -3,9 +3,9 @@ package com.logistpulse.inventory.state;
 import com.logistpulse.inventory.model.BatchContext;
 
 public interface BatchState {
-    void store(BatchContext context);
-    void reserve(BatchContext context);
-    void ship(BatchContext context);
-    void quarantine(BatchContext context);
+    BatchState store(BatchContext context);
+    BatchState reserve(BatchContext context);
+    BatchState ship(BatchContext context);
+    BatchState quarantine(BatchContext context);
     String getStateName();
 }

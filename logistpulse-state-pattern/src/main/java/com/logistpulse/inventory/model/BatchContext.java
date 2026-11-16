@@ -13,19 +13,19 @@ public class BatchContext {
     }
 
     public void store() {
-        currentState.store(this);
+        currentState = currentState.store(this);
     }
 
     public void reserve() {
-        currentState.reserve(this);
+        currentState = currentState.reserve(this);
     }
 
     public void ship() {
-        currentState.ship(this);
+        currentState = currentState.ship(this);
     }
 
     public void quarantine() {
-        currentState.quarantine(this);
+        currentState = currentState.quarantine(this);
     }
 
     public String getBatchId() {
@@ -36,7 +36,4 @@ public class BatchContext {
         return currentState.getStateName();
     }
 
-    public void setState(BatchState state) {
-        this.currentState = state;
-    }
 }

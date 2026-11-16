@@ -1,6 +1,7 @@
 package com.logistpulse.inventory.command;
 
 public interface InventoryCommand {
-    void execute();
+    boolean execute();
+    void undo();
     String getCommandId();
 }

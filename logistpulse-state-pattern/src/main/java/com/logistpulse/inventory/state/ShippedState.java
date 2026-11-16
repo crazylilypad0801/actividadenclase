@@ -4,22 +4,22 @@ import com.logistpulse.inventory.model.BatchContext;
 
 public class ShippedState implements BatchState {
     @Override
-    public void store(BatchContext context) {
+    public BatchState store(BatchContext context) {
         throw new IllegalStateException("Transición inválida: El lote ya fue ENVIADO (estado final).");
     }
 
     @Override
-    public void reserve(BatchContext context) {
+    public BatchState reserve(BatchContext context) {
         throw new IllegalStateException("Transición inválida: El lote ya fue ENVIADO (estado final).");
     }
 
     @Override
-    public void ship(BatchContext context) {
+    public BatchState ship(BatchContext context) {
         throw new IllegalStateException("Transición inválida: El lote ya fue ENVIADO.");
     }
 
     @Override
-    public void quarantine(BatchContext context) {
+    public BatchState quarantine(BatchContext context) {
         throw new IllegalStateException("Transición inválida: El lote ya fue ENVIADO.");
     }
 

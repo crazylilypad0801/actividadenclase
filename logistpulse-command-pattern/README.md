@@ -1,137 +1,67 @@
-# LogistPulse Inventory Design Patterns
+# Command Pattern
 
-This repository contains three small Spring Boot examples of inventory workflows implemented with design patterns:
+This Spring Boot example models reserve, release, adjust, and transfer operations as command objects. `CommandInvoker` submits commands and undoes them in LIFO order; `InventoryReceiver` owns stock per SKU and location, and `LedgerService` records successful operations and undo events.
 
-- **Command** — the root Maven project, which models inventory reservations as executable commands.
-- **Chain of Responsibility** — `logistpulse-chain-pattern`, which validates a reservation through an ordered sequence of handlers.
-- **Strategy** — `logistpulse-strategy-pattern`, which selects interchangeable batch-picking and replenishment policies.
+The ledger compares the complete operation payload for a reused ID: an identical retry is reported as a duplicate, while reusing the ID with different data returns a conflict. Failed operations do not consume their command IDs. Undo is retained in history if its compensating operation fails.
 
-## Command Pattern
+The state and ledger are in memory, so this is a pattern demonstration rather than production persistence or transaction management.
 
-`ReservationController` creates a `ReserveCommand` from the incoming reservation request and command ID. The command delegates the reservation to `InventoryReceiver` and records successful execution through `LedgerService`. The ledger check makes repeated command IDs idempotent.
+## Endpoints
+
+- `POST /operations` with `X-Command-Id` and JSON fields `operation`, `sku`, `quantity`, and `location`; `destinationLocation` is required for transfers.
+- `POST /reservations` remains a convenience endpoint for a reservation at location `MAIN`.
+- `POST /reservations/undo` compensates the latest successful command.
+
+Example operation body:
+
+```json
+{
+  "operation": "ADJUST",
+  "sku": "SKU-1",
+  "quantity": 100,
+  "location": "MAIN"
+}
+```
+
+## Class diagram
 
 ```mermaid
 classDiagram
-    direction LR
-
     class ReservationController {
         +createReservation(commandId, request)
     }
     class InventoryCommand {
         <<interface>>
-        +execute()
+        +execute() boolean
         +getCommandId() String
     }
     class ReserveCommand {
         -commandId String
         -sku String
         -quantity int
-        +execute()
-        +getCommandId() String
+        +execute() boolean
+        +undo()
+    }
+    class ReleaseCommand
+    class AdjustCommand
+    class TransferCommand
+    class CommandInvoker {
+        +submit(command) boolean
+        +undoLast() String
     }
     class InventoryReceiver {
         +reserve(sku, quantity)
     }
     class LedgerService {
-        +exists(commandId) boolean
-        +record(commandId, action, sku, quantity)
+        +executeOnce(commandId, action, sku, quantity, location, destination, operation) boolean
     }
 
     InventoryCommand <|.. ReserveCommand
+    InventoryCommand <|.. ReleaseCommand
+    InventoryCommand <|.. AdjustCommand
+    InventoryCommand <|.. TransferCommand
     ReservationController ..> InventoryCommand : creates
-    ReservationController ..> ReserveCommand : executes
+    CommandInvoker ..> InventoryCommand : invokes and undoes
     ReserveCommand --> InventoryReceiver : reserves inventory
     ReserveCommand --> LedgerService : checks and records
-```
-
-## Chain of Responsibility Pattern
-
-The validation service builds this chain in order: SKU, stock, batch status, then capacity. Each handler rejects invalid requests or passes valid requests to the next handler.
-
-```mermaid
-classDiagram
-    direction LR
-
-    class ReservationValidationController {
-        +validate(request)
-    }
-    class ReservationValidationService {
-        -chain ValidationHandler
-        +validateReservation(request)
-    }
-    class ValidationHandler {
-        <<abstract>>
-        #next ValidationHandler
-        +linkWith(next) ValidationHandler
-        +validate(request)*
-        #checkNext(request)
-    }
-    class SkuValidationHandler
-    class StockValidationHandler
-    class BatchValidationHandler
-    class CapacityValidationHandler
-
-    ValidationHandler <|-- SkuValidationHandler
-    ValidationHandler <|-- StockValidationHandler
-    ValidationHandler <|-- BatchValidationHandler
-    ValidationHandler <|-- CapacityValidationHandler
-    ReservationValidationController ..> ReservationValidationService : calls
-    ReservationValidationService --> SkuValidationHandler : starts chain
-    SkuValidationHandler --> StockValidationHandler : next
-    StockValidationHandler --> BatchValidationHandler : next
-    BatchValidationHandler --> CapacityValidationHandler : next
-```
-
-## Strategy Pattern
-
-`InventoryStrategyContext` selects a policy by key and delegates the work. Picking and replenishment are separate strategy families, each with its own interface and implementations. Unknown keys use FIFO for picking and MIN_MAX for replenishment.
-
-```mermaid
-classDiagram
-    direction TB
-
-    class StrategyController {
-        +pickBatch(policy)
-        +calculateReplenishment(policy, currentStock, dailyDemand)
-    }
-    class InventoryStrategyContext {
-        -pickingPolicies Map
-        -replenishmentPolicies Map
-        +executePicking(policyKey, batches) Batch
-        +executeReplenishment(policyKey, currentStock, dailyDemand) int
-        +getSampleBatches() List~Batch~
-    }
-    class Batch {
-        -batchId String
-        -receivedAt LocalDate
-        -expirationDate LocalDate
-    }
-    class PickingPolicy {
-        <<interface>>
-        +selectBatch(availableBatches) Batch
-        +getPolicyName() String
-    }
-    class FifoPickingPolicy
-    class LifoPickingPolicy
-    class FefoPickingPolicy
-    class ReplenishmentPolicy {
-        <<interface>>
-        +calculateOrderQuantity(currentStock, dailyDemand) int
-        +getPolicyName() String
-    }
-    class EoqReplenishmentPolicy
-    class MinMaxReplenishmentPolicy
-    class RopReplenishmentPolicy
-
-    StrategyController --> InventoryStrategyContext : delegates
-    InventoryStrategyContext ..> PickingPolicy : selects
-    InventoryStrategyContext ..> ReplenishmentPolicy : selects
-    InventoryStrategyContext ..> Batch : supplies batches
-    PickingPolicy <|.. FifoPickingPolicy
-    PickingPolicy <|.. LifoPickingPolicy
-    PickingPolicy <|.. FefoPickingPolicy
-    ReplenishmentPolicy <|.. EoqReplenishmentPolicy
-    ReplenishmentPolicy <|.. MinMaxReplenishmentPolicy
-    ReplenishmentPolicy <|.. RopReplenishmentPolicy
-    PickingPolicy ..> Batch : selects
 ```

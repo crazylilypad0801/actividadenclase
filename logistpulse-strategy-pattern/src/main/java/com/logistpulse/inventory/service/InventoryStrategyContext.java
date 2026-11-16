@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class InventoryStrategyContext {
@@ -23,13 +25,30 @@ public class InventoryStrategyContext {
     }
 
     public Batch executePicking(String policyKey, List<Batch> batches) {
-        PickingPolicy policy = pickingPolicies.getOrDefault(policyKey.toUpperCase(), pickingPolicies.get("FIFO"));
+        if (batches == null || batches.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Available batches must not be null or contain null entries.");
+        }
+        PickingPolicy policy = getPolicy(policyKey, pickingPolicies, "picking");
         return policy.selectBatch(batches);
     }
 
     public int executeReplenishment(String policyKey, int currentStock, int dailyDemand) {
-        ReplenishmentPolicy policy = replenishmentPolicies.getOrDefault(policyKey.toUpperCase(), replenishmentPolicies.get("MIN_MAX"));
+        if (currentStock < 0 || dailyDemand < 0) {
+            throw new IllegalArgumentException("Stock and daily demand must not be negative.");
+        }
+        ReplenishmentPolicy policy = getPolicy(policyKey, replenishmentPolicies, "replenishment");
         return policy.calculateOrderQuantity(currentStock, dailyDemand);
+    }
+
+    private <T> T getPolicy(String policyKey, Map<String, T> policies, String category) {
+        if (policyKey == null || policyKey.isBlank()) {
+            throw new IllegalArgumentException("A " + category + " policy must be specified.");
+        }
+        T policy = policies.get(policyKey.trim().toUpperCase(Locale.ROOT));
+        if (policy == null) {
+            throw new IllegalArgumentException("Unknown " + category + " policy: " + policyKey);
+        }
+        return policy;
     }
 
     public List<Batch> getSampleBatches() {

@@ -4,23 +4,23 @@ import com.logistpulse.inventory.model.BatchContext;
 
 public class ReservedState implements BatchState {
     @Override
-    public void store(BatchContext context) {
+    public BatchState store(BatchContext context) {
         throw new IllegalStateException("Transición inválida: El lote ya está RESERVADO.");
     }
 
     @Override
-    public void reserve(BatchContext context) {
+    public BatchState reserve(BatchContext context) {
         throw new IllegalStateException("Transición inválida: El lote ya está RESERVADO.");
     }
 
     @Override
-    public void ship(BatchContext context) {
+    public BatchState ship(BatchContext context) {
         System.out.println("[STATE] Lote " + context.getBatchId() + ": Reservado -> Enviado");
-        context.setState(new ShippedState());
+        return new ShippedState();
     }
 
     @Override
-    public void quarantine(BatchContext context) {
+    public BatchState quarantine(BatchContext context) {
         throw new IllegalStateException("Transición inválida: Un lote reservado no puede pasar directamente a cuarentena.");
     }
 
